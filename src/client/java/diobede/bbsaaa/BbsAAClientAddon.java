@@ -40,7 +40,14 @@ public class BbsAAClientAddon implements BBSAddonMod
 
         if (System.getProperty("bbsaaa.autotest") != null)
         {
-            diobede.bbsaaa.autotest.AutoTest.install();
+            if ("films".equals(System.getProperty("bbsaaa.autotest")))
+            {
+                diobede.bbsaaa.autotest.FilmShowcase.install();
+            }
+            else
+            {
+                diobede.bbsaaa.autotest.AutoTest.install();
+            }
         }
     }
 
