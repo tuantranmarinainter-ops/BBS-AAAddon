@@ -35,6 +35,11 @@ public class BbsAAClientAddon implements BBSAddonMod
     {
         ClientTickEvents.END_CLIENT_TICK.register((client) -> BbsAAClientAddon.tickCleanup());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> cleanup());
+
+        if (System.getProperty("bbsaaa.autotest") != null)
+        {
+            diobede.bbsaaa.autotest.AutoTest.install();
+        }
     }
 
     @Subscribe
