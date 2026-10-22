@@ -34,7 +34,9 @@ public class BbsAAClientAddon implements BBSAddonMod
     public BbsAAClientAddon()
     {
         ClientTickEvents.END_CLIENT_TICK.register((client) -> BbsAAClientAddon.tickCleanup());
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> cleanup());
+        /* DISCONNECT fires on the Netty IO thread; stopping native Effekseer emitters there
+         * calls OpenGL without a context and aborts the JVM. Run the cleanup on the client thread. */
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(BbsAAClientAddon::cleanup));
 
         if (System.getProperty("bbsaaa.autotest") != null)
         {
