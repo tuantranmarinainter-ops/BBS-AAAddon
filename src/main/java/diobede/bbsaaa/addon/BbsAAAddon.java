@@ -11,16 +11,10 @@ import mchorse.bbs_mod.resources.Link;
 
 public class BbsAAAddon implements BBSAddonMod
 {
-    @Override
-    public int requiredApiVersion()
-    {
-        return 2;
-    }
-
     @Subscribe
     public void forms(RegisterFormsEvent event)
     {
-        event.register(Link.bbs("aaa_particle"), AAAParticleForm.class);
+        event.forms.register(Link.bbs("aaa_particle"), AAAParticleForm.class);
     }
 
     @Subscribe

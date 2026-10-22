@@ -13,8 +13,9 @@ import mchorse.bbs_mod.api.client.events.RegisterFormEditorsEvent;
 import mchorse.bbs_mod.api.client.events.RegisterFormRenderersEvent;
 import mchorse.bbs_mod.api.client.events.RegisterFormSectionsEvent;
 import mchorse.bbs_mod.api.client.events.RegisterL10nEvent;
-import mchorse.bbs_mod.api.client.events.RegisterTrackPresentationEvent;
-import mchorse.bbs_mod.api.replays.TrackPresentation;
+import mchorse.bbs_mod.api.client.events.BBSClientReadyEvent;
+import mchorse.bbs_mod.api.client.events.RegisterTrackStylesEvent;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.resources.Link;
 
@@ -25,30 +26,21 @@ import java.util.List;
 
 public class BbsAAClientAddon implements BBSAddonMod
 {
-    private static final String GROUP = BBSAAaddon.MOD_ID + ":particle";
-    private static final String GROUP_KEY = "bbsaaa.ui.forms.categories.aaa_particles";
-
     /* Animatable properties that are specific to the AAA particle form */
     private static final String[] TRACKS = {"paused", "loop", "speed", "restart", "particleScale"};
 
-    @Override
-    public int requiredApiVersion()
+    /* BBS FS: BBSAddonMod is an empty marker without lifecycle hooks, so Fabric client
+     * events are registered when the bbs-client-addon entrypoint is constructed. */
+    public BbsAAClientAddon()
     {
-        return 2;
-    }
-
-    @Override
-    public void initialize(mchorse.bbs_mod.api.AddonContext context)
-    {
-        FilmPlaybackTracker.initialize();
         ClientTickEvents.END_CLIENT_TICK.register((client) -> BbsAAClientAddon.tickCleanup());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> cleanup());
     }
 
-    @Override
-    public void shutdown(mchorse.bbs_mod.api.AddonContext context)
+    @Subscribe
+    public void ready(BBSClientReadyEvent event)
     {
-        cleanup();
+        FilmPlaybackTracker.initialize();
     }
 
     private static void cleanup()
@@ -104,7 +96,7 @@ public class BbsAAClientAddon implements BBSAddonMod
     }
 
     @Subscribe
-    public void tracks(RegisterTrackPresentationEvent event)
+    public void tracks(RegisterTrackStylesEvent event)
     {
         /* Smooth gradient from #d00093 to #00ef77 */
         int start = 0xD00093;
@@ -117,8 +109,7 @@ public class BbsAAClientAddon implements BBSAddonMod
             int g = (int) (((start >> 8) & 0xFF) + ratio * (((end >> 8) & 0xFF) - ((start >> 8) & 0xFF)));
             int b = (int) ((start & 0xFF) + ratio * ((end & 0xFF) - (start & 0xFF)));
 
-            event.register(new TrackPresentation(TRACKS[i], "bbsaaa.track." + TRACKS[i], (r << 16) | (g << 8) | b,
-                GROUP, GROUP_KEY, "", i));
+            event.register(TRACKS[i], Icons.PARTICLE, (r << 16) | (g << 8) | b, L10n.lang("bbsaaa.track." + TRACKS[i]));
         }
     }
 }
