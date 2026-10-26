@@ -2,12 +2,14 @@ package diobede.bbsaaa.forms.renderers;
 
 import mchorse.bbs_mod.BBSMod;
 import diobede.bbsaaa.particles.AAAEffectRegistry;
+import diobede.bbsaaa.particles.RequiredEffectAssets;
 
 import net.minecraft.util.Identifier;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -19,6 +21,7 @@ import mod.chloeprime.aaaparticles.api.client.EffectMetadata;
 import mod.chloeprime.aaaparticles.api.client.effekseer.EffekseerEffect;
 import mod.chloeprime.aaaparticles.api.client.effekseer.TextureType;
 import mod.chloeprime.aaaparticles.client.loader.EffekAssetLoader;
+import mod.chloeprime.aaaparticles.client.installer.NativePlatform;
 import mod.chloeprime.aaaparticles.client.render.RenderUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +44,7 @@ public class BBSEffectLoader
 
     private static volatile boolean reloadRequested;
     private static volatile boolean reloading;
+    private static boolean warnedUnsupportedPlatform;
 
     public static void requestReload()
     {
@@ -72,6 +76,15 @@ public class BBSEffectLoader
 
     public static boolean canLoadExternalEffects()
     {
+        if (NativePlatform.isRunningOnUnsupportedPlatform())
+        {
+            if (!warnedUnsupportedPlatform)
+            {
+                warnedUnsupportedPlatform = true;
+                LOGGER.warn("AAA native runtime is unavailable; particle forms keep their renderer but draw no effect");
+            }
+            return false;
+        }
         return !reloading;
     }
 
@@ -81,7 +94,7 @@ public class BBSEffectLoader
      */
     public static EffectDefinition getOrLoad(Identifier id)
     {
-        if (!canLoadExternalEffects())
+        if (!canLoadExternalEffects() || failedEffects.contains(id))
         {
             return null;
         }
@@ -96,8 +109,23 @@ public class BBSEffectLoader
             if (holder != null)
             {
                 /* Try lazy get (already loaded) first, otherwise trigger load */
-                EffectDefinition existing = holder.lazyGet()
-                        .orElseGet(() -> holder.load().join().orElse(null));
+                EffectDefinition existing;
+                try
+                {
+                    existing = holder.lazyGet().orElseGet(() -> holder.load().join().orElse(null));
+                }
+                catch (RuntimeException e)
+                {
+                    // AAA 2.2.3 can throw synchronously from holder.load(), wrapping
+                    // an IOException. Do not hide unrelated integration/programming errors.
+                    if (!(e.getCause() instanceof IOException))
+                    {
+                        throw e;
+                    }
+                    failedEffects.add(id);
+                    LOGGER.warn("AAA effect resource load failed; skipping {} until Reload Effects", id, e);
+                    return null;
+                }
 
                 if (existing != null)
                 {
@@ -168,7 +196,7 @@ public class BBSEffectLoader
 
         if (!effectFile.exists())
         {
-            LOGGER.debug("Effect file not found: {}", effectFile.getAbsolutePath());
+            LOGGER.warn("Effect file not found; skipping {} until Reload Effects: {}", id, effectFile.getAbsolutePath());
             failedEffects.add(id);
 
             return null;
@@ -296,9 +324,9 @@ public class BBSEffectLoader
 
             return definition;
         }
-        catch (IOException | RuntimeException e)
+        catch (IOException | UncheckedIOException e)
         {
-            LOGGER.error("Failed to load effect file: {}", effectFile.getAbsolutePath(), e);
+            LOGGER.warn("Cannot load effect; drawing no effect until Reload Effects: {}", effectFile.getAbsolutePath(), e);
 
             return null;
         }
@@ -316,27 +344,15 @@ public class BBSEffectLoader
      */
     private static void loadAsset(File parentDir, String assetPath, AssetLoader loader)
     {
-        /* Normalize path separators */
-        assetPath = assetPath.replace("\\", "/");
-
-        File assetFile = new File(parentDir, assetPath);
-
-        if (!assetFile.exists())
+        try
         {
-            LOGGER.warn("Asset file not found: {}", assetFile.getAbsolutePath());
-
-            return;
-        }
-
-        try (FileInputStream input = new FileInputStream(assetFile))
-        {
-            byte[] data = input.readAllBytes();
-
-            loader.load(data, data.length);
+            RequiredEffectAssets.load(parentDir, assetPath, loader::load);
         }
         catch (IOException e)
         {
-            LOGGER.error("Failed to load asset: {}", assetFile.getAbsolutePath(), e);
+            // The outer effect-load boundary logs the cause and closes the effect.
+            // Never register a partially loaded native effect.
+            throw new UncheckedIOException("Cannot load required effect asset: " + assetPath, e);
         }
     }
 

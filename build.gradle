@@ -63,7 +63,7 @@ dependencies {
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	// Release jars use intermediary mappings; Loom remaps them for development.
 	if (!file(project.bbs_dev_jar).isFile()) {
-		throw new GradleException("Missing BBS CML jar: ${project.bbs_dev_jar}. Place the release jar in libs/ or set -Pbbs_dev_jar=<path>.")
+		throw new GradleException("Missing BBS FS jar: ${project.bbs_dev_jar}. Place the release jar in libs/ or set -Pbbs_dev_jar=<path>.")
 	}
 	modImplementation files(project.bbs_dev_jar)
 
