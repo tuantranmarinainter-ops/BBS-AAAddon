@@ -2,6 +2,8 @@ package diobede.bbsaaa.forms.renderers;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import diobede.bbsaaa.forms.AAAParticleForm;
+import diobede.bbsaaa.BBSAAaddon;
+import net.minecraft.util.Identifier;
 import diobede.bbsaaa.particles.AAAPreviewRenderer;
 import diobede.bbsaaa.particles.FilmPlaybackTracker;
 import diobede.bbsaaa.particles.ParticleEffectIds;
@@ -38,6 +40,7 @@ public class AAAParticleFormRenderer extends FormRenderer<AAAParticleForm> imple
     private boolean renderedSinceTick;
     private boolean allowsUnboundEntity;
     private int missedTicks;
+    private boolean warnedInvalidEffect;
 
     public AAAParticleFormRenderer(AAAParticleForm form)
     {
@@ -137,16 +140,28 @@ public class AAAParticleFormRenderer extends FormRenderer<AAAParticleForm> imple
         }
 
         boolean isPreview = context.type == FormRenderType.PREVIEW;
-        if (context.entity == null || this.form.effect.get() == null)
+        if (context.entity == null)
         {
             this.cleanup();
             return;
         }
+        Identifier effectId = ParticleEffectIds.fromLink(this.form.effect.get());
+        if (effectId == null)
+        {
+            if (!this.warnedInvalidEffect)
+            {
+                this.warnedInvalidEffect = true;
+                BBSAAaddon.LOGGER.warn("AAA form has no valid effect link; drawing no effect: {}", this.form.effect.get());
+            }
+            this.cleanup();
+            return;
+        }
+        this.warnedInvalidEffect = false;
 
         this.entity = context.entity;
         this.allowsUnboundEntity = isPreview || context.type == FormRenderType.MODEL_BLOCK;
         this.playback.tick(context.entity.getAge(), this.form.restart.get());
-        ParticleEmitter emitter = this.playback.update(this.form, ParticleEffectIds.fromLink(this.form.effect.get()),
+        ParticleEmitter emitter = this.playback.update(this.form, effectId,
             isPreview, FilmPlaybackTracker.isPaused(context.entity), MinecraftClient.getInstance().isPaused());
 
         if (this.playback.getEmitter() != null)

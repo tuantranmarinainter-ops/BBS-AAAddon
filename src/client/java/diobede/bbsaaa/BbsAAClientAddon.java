@@ -34,6 +34,10 @@ public class BbsAAClientAddon implements BBSAddonMod
     public BbsAAClientAddon()
     {
         ClientTickEvents.END_CLIENT_TICK.register((client) -> BbsAAClientAddon.tickCleanup());
+        if ("missing-effect".equals(System.getProperty("bbsaaa.autotest")))
+        {
+            diobede.bbsaaa.autotest.MissingEffectReplayTest.install();
+        }
         /* DISCONNECT fires on the Netty IO thread; stopping native Effekseer emitters there
          * calls OpenGL without a context and aborts the JVM. Run the cleanup on the client thread. */
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(BbsAAClientAddon::cleanup));
@@ -88,6 +92,8 @@ public class BbsAAClientAddon implements BBSAddonMod
     @Subscribe
     public void renderers(RegisterFormRenderersEvent event)
     {
+        // Register independently of asset availability: BBS also needs a renderer
+        // while selecting a replay and collecting its orbit target/bounds.
         event.register(AAAParticleForm.class, AAAParticleFormRenderer::new);
     }
 
